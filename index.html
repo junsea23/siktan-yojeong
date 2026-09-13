@@ -1,0 +1,545 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>식단요정 · 2026-W38</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#ffb020">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="favicon.ico" sizes="any">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="식단요정">
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--fg:#1b1d21;--muted:#6b7280;--line:#e3e6ea;
+--accent:#2c77c7;--accent-fg:#fff;--today:#fff8e1;--today-line:#f0c419;}
+@media(prefers-color-scheme:dark){:root{--bg:#16181d;--card:#1f2229;--fg:#e8eaed;
+--muted:#9aa0a6;--line:#31353d;--accent:#4b9fea;--today:#2a2718;--today-line:#c9a227;}}
+*{box-sizing:border-box}
+body{margin:0;padding:24px calc(16px + env(safe-area-inset-right)) calc(64px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));background:var(--bg);color:var(--fg);
+font-family:"Malgun Gothic","Apple SD Gothic Neo",system-ui,sans-serif;line-height:1.5}
+.wrap{max-width:720px;margin:0 auto}
+h1{font-size:20px;margin:0 0 4px}
+.sub{color:var(--muted);font-size:13px;margin-bottom:20px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;
+margin-bottom:14px;overflow:hidden}
+.card.today{background:var(--today);border-color:var(--today-line)}
+.head{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--line)}
+.day{font-weight:700;font-size:15px}
+.badge{font-size:11px;background:var(--today-line);color:#3a2f00;padding:2px 7px;border-radius:999px}
+.empty-tag{font-size:12px;color:var(--muted)}
+.spacer{flex:1}
+button{font:inherit;font-size:13px;padding:7px 16px;border-radius:8px;border:0;
+background:var(--accent);color:var(--accent-fg);cursor:pointer}
+button:hover{filter:brightness(1.08)}
+button.done{background:#2e9e5b}
+pre{margin:0;padding:14px;white-space:pre-wrap;word-break:break-word;
+font-family:inherit;font-size:14px}
+.card.is-empty pre{color:var(--muted)}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>🍽️ 식단요정 · 2026-W38</h1>
+    <div class="sub">복사 버튼을 누르고 단톡방에 붙여넣으세요. · 생성 2026-09-14 08:53</div>
+    <div class="card today">
+      <div class="head">
+        <span class="day">9월 14일 (월)</span><span class="badge">오늘</span>
+        <span class="spacer"></span>
+        <button onclick="copyText(this)">복사</button>
+      </div>
+      <pre>2026년 9월 14일 월요일의 식단입니다! 🍽️
+🥄 학관 🥄
+🍚 코테(든든한동) 🍚
+🥚 조식 🥚
+닭죽
+너비아니조림
+황도샐러드
+고들빼기무침
+🐣 중식 🐣
+레몬소스탕수육
+쌀밥
+올갱이두부국
+가지볶음
+얼갈이시저샐러드무침
+깍두기
+🐥 석식 🐥
+순대두루치기
+쌀밥
+미역국
+야채고로케&amp;케찹
+숙주나물
+깍두기
+🥘 프라이프라이(H-Plate) 🥘
+돈까스
+고추데리야끼돈까스
+최현석st 백합봉골레수제비파스타
+🍝 누들로드 🍝
+라면
+마요덮밥
+🍗 그레이스 가든 🍗
+찜닭
+🍛 믹스 라이스(따스한동) 🍛
+대구식매운찜갈비솥밥
+시오야끼소바
+🍜 한동라운지 🍜
+🍱 교직원식당 🍱
+🐣 중식 🐣
+쌀밥
+미역국
+돼지고기김치볶음
+찐두부&amp;양념장
+콩나물무침
+깍두기
+양상추샐러드&amp;드레싱
+🥟 일반식당 🥟
+🐣 중식 🐣
+짜장면/짜장면곱배기
+홍짬뽕
+찹쌀탕수육(소)
+세트A(짜장+홍짬뽕+탕수육)
+세트B(짜장+탕수육)
+세트C(홍짬뽕+탕수육)
+돼지국밥
+순두부찌개
+부대찌개
+닭강정
+🐥 석식 🐥
+짜장면/짜장면곱배기
+홍짬뽕
+찹쌀탕수육(소)
+세트A(짜장+홍짬뽕+탕수육)
+세트B(짜장+탕수육)
+세트C(홍짬뽕+탕수육)
+돼지국밥
+순두부찌개
+부대찌개
+닭강정
+🥗 더그레이스테이블 🥗
+🐣 중식 🐣
+행사로 인하여
+영업하지 않습니다
+양해바랍니다
+🐥 석식 🐥
+행사로 인하여
+영업하지 않습니다
+양해바랍니다</pre>
+    </div>
+    <div class="card">
+      <div class="head">
+        <span class="day">9월 15일 (화)</span>
+        <span class="spacer"></span>
+        <button onclick="copyText(this)">복사</button>
+      </div>
+      <pre>2026년 9월 15일 화요일의 식단입니다! 🍽️
+🥄 학관 🥄
+🍚 코테(든든한동) 🍚
+🥚 조식 🥚
+돈채짜장볶음
+쌀밥
+계란파국
+실치마늘종
+도토리묵무침
+깍두기
+or
+스팸땡초밥버거
+🐣 중식 🐣
+언양식불고기
+쌀밥
+김치국
+마카로니샐러드
+콩나물무침
+깍두기
+🐥 석식 🐥
+제육파채두루치기
+쌀밥
+팽이장국
+어묵볶음
+다시마쌈&amp;양념장
+깍두기
+🥘 프라이프라이(H-Plate) 🥘
+등심돈까스
+유린치킨까스
+김피탕
+🍝 누들로드 🍝
+라면
+마요덮밥
+🍗 그레이스 가든 🍗
+찜닭
+🍛 믹스 라이스(따스한동) 🍛
+등촌st샤브칼국수
+카오카무(족발덮밥)
+🍜 한동라운지 🍜
+🍱 교직원식당 🍱
+🐣 중식 🐣
+쌀밥
+꽃게된장찌개
+장똑똑이
+부추장떡
+땅콩연근조림
+김치
+양상추샐러드&amp;드레싱
+🥟 일반식당 🥟
+🐣 중식 🐣
+짜장면/짜장면곱배기
+홍짬뽕
+찹쌀탕수육(소)
+세트A(짜장+홍짬뽕+탕수육)
+세트B(짜장+탕수육)
+세트C(홍짬뽕+탕수육)
+돼지국밥
+순두부찌개
+부대찌개
+닭강정
+🐥 석식 🐥
+짜장면/짜장면곱배기
+홍짬뽕
+찹쌀탕수육(소)
+세트A(짜장+홍짬뽕+탕수육)
+세트B(짜장+탕수육)
+세트C(홍짬뽕+탕수육)
+돼지국밥
+순두부찌개
+부대찌개
+닭강정
+🥗 더그레이스테이블 🥗
+🐣 중식 🐣
+행사로 인하여
+영업하지 않습니다
+양해바랍니다
+🐥 석식 🐥
+행사로 인하여
+영업하지 않습니다
+양해바랍니다</pre>
+    </div>
+    <div class="card">
+      <div class="head">
+        <span class="day">9월 16일 (수)</span>
+        <span class="spacer"></span>
+        <button onclick="copyText(this)">복사</button>
+      </div>
+      <pre>2026년 9월 16일 수요일의 식단입니다! 🍽️
+🥄 학관 🥄
+🍚 코테(든든한동) 🍚
+🥚 조식 🥚
+소세지마요덮밥
+우동국물
+옥수수고로케
+깍두기
+🐣 중식 🐣
+육개장
+쌀밥
+계란찜
+장아찌
+깍두기
+🐥 석식 🐥
+카레소스
+쌀밥
+얼갈이된장국
+비빔만두
+김치
+🥘 프라이프라이(H-Plate) 🥘
+돈까스
+마라크림돈까스
+크리미소세지파스타
+🍗 그레이스 가든 🍗
+찜닭
+🍛 믹스 라이스(따스한동) 🍛
+분보후에 (매운쌀국수)
+헐랭이수육정식
+🍜 한동라운지 🍜
+🍱 교직원식당 🍱
+🐣 중식 🐣
+스팸마요덮밥
+유부장국
+단호박고로케&amp;케찹
+감자고추장조림
+단무지
+깍두기
+양상추샐러드&amp;드레싱
+🥟 일반식당 🥟
+🐣 중식 🐣
+짜장면/짜장면곱배기
+홍짬뽕
+찹쌀탕수육(소)
+세트A(짜장+홍짬뽕+탕수육)
+세트B(짜장+탕수육)
+세트C(홍짬뽕+탕수육)
+돼지국밥
+순두부찌개
+부대찌개
+닭강정
+🐥 석식 🐥
+짜장면/짜장면곱배기
+홍짬뽕
+찹쌀탕수육(소)
+세트A(짜장+홍짬뽕+탕수육)
+세트B(짜장+탕수육)
+세트C(홍짬뽕+탕수육)
+돼지국밥
+순두부찌개
+부대찌개
+닭강정
+🥗 더그레이스테이블 🥗
+🐣 중식 🐣
+에그베네틱트
+닭가슴살 샐러드
+꼬막 비빔밥
+소고기 비빔밥
+찹스테이크 덮밥
+베이컨 크림 파스타
+새우 오일 파스타
+더블치즈버거
+감자튀김
+🐥 석식 🐥
+에그베네틱트
+닭가슴살 샐러드
+꼬막 비빔밥
+소고기 비빔밥
+찹스테이크 덮밥
+베이컨 크림 파스타
+새우 오일 파스타
+더블치즈버거
+감자튀김</pre>
+    </div>
+    <div class="card">
+      <div class="head">
+        <span class="day">9월 17일 (목)</span>
+        <span class="spacer"></span>
+        <button onclick="copyText(this)">복사</button>
+      </div>
+      <pre>2026년 9월 17일 목요일의 식단입니다! 🍽️
+🥄 학관 🥄
+🍚 코테(든든한동) 🍚
+🥚 조식 🥚
+계란장조림
+쌀밥
+미역국
+명엽채
+브로콜리버섯볶음
+김치
+or
+소고기밥버거
+🐣 중식 🐣
+오돈불고기
+쌀밥
+어묵국
+연두부
+도시락김
+김치
+🐥 석식 🐥
+조각돈까스&amp;칠리소스
+쌀밥
+북어국
+감자채볶음
+무나물
+김치
+🥘 프라이프라이(H-Plate) 🥘
+돈까스
+바질크림돈까스
+명동st 불닭오므라이스
+🍝 누들로드 🍝
+라면
+마요덮밥
+🍗 그레이스 가든 🍗
+찜닭
+🍛 믹스 라이스(따스한동) 🍛
+불고기만두전골
+카라이마제소바
+🍜 한동라운지 🍜
+🍱 교직원식당 🍱
+🐣 중식 🐣
+쌀밥
+설렁탕
+구운어묵조림
+부추무침
+석박지
+양상추샐러드&amp;드레싱
+🥟 일반식당 🥟
+🐣 중식 🐣
+짜장면/짜장면곱배기
+홍짬뽕
+찹쌀탕수육(소)
+세트A(짜장+홍짬뽕+탕수육)
+세트B(짜장+탕수육)
+세트C(홍짬뽕+탕수육)
+돼지국밥
+순두부찌개
+부대찌개
+닭강정
+🐥 석식 🐥
+짜장면/짜장면곱배기
+홍짬뽕
+찹쌀탕수육(소)
+세트A(짜장+홍짬뽕+탕수육)
+세트B(짜장+탕수육)
+세트C(홍짬뽕+탕수육)
+돼지국밥
+순두부찌개
+부대찌개
+닭강정</pre>
+    </div>
+    <div class="card">
+      <div class="head">
+        <span class="day">9월 18일 (금)</span>
+        <span class="spacer"></span>
+        <button onclick="copyText(this)">복사</button>
+      </div>
+      <pre>2026년 9월 18일 금요일의 식단입니다! 🍽️
+🥄 학관 🥄
+🍚 코테(든든한동) 🍚
+🥚 조식 🥚
+순두부참치짜글이탕
+쌀밥
+미트볼조림
+치커리사과무침
+깍두기
+🐣 중식 🐣
+생선까스&amp;타르소스
+쌀밥
+유부장국
+햄떡볶음
+열무나물
+깍두기
+🐥 석식 🐥
+메추리알모듬장조림
+쌀밥
+김치콩나물국
+청포묵김가루무침
+양념깻잎지
+김치
+🥘 프라이프라이(H-Plate) 🥘
+돈까스
+치킨치즈까스&amp;칠리소스
+눈꽃치즈제육덮밥
+🍝 누들로드 🍝
+라면
+마요덮밥
+🍗 그레이스 가든 🍗
+찜닭
+🍛 믹스 라이스(따스한동) 🍛
+강민경유툽 우삼겹들깨수제비탕
+중화비빔밥
+🍜 한동라운지 🍜
+🍱 교직원식당 🍱
+🐣 중식 🐣
+잔치국수
+쌀밥
+비엔나조림
+얼갈이된장무침
+단무지
+김치
+양상추샐러드&amp;드레싱
+🥟 일반식당 🥟
+🐣 중식 🐣
+짜장면/짜장면곱배기
+홍짬뽕
+찹쌀탕수육(소)
+세트A(짜장+홍짬뽕+탕수육)
+세트B(짜장+탕수육)
+세트C(홍짬뽕+탕수육)
+돼지국밥
+순두부찌개
+부대찌개
+닭강정
+🐥 석식 🐥
+짜장면/짜장면곱배기
+홍짬뽕
+찹쌀탕수육(소)
+세트A(짜장+홍짬뽕+탕수육)
+세트B(짜장+탕수육)
+세트C(홍짬뽕+탕수육)
+돼지국밥
+순두부찌개
+부대찌개
+닭강정</pre>
+    </div>
+    <div class="card">
+      <div class="head">
+        <span class="day">9월 19일 (토)</span>
+        <span class="spacer"></span>
+        <button onclick="copyText(this)">복사</button>
+      </div>
+      <pre>2026년 9월 19일 토요일의 식단입니다! 🍽️
+🥄 학관 🥄
+🍚 코테(든든한동) 🍚
+🐣 중식 🐣
+마라소스불고기
+쌀밥
+콩나물국
+데친두부&amp;양념장
+장아찌
+김치
+🐥 석식 🐥
+떡만두국
+쌀밥
+야채전
+오이생채
+김치</pre>
+    </div>
+    <div class="card">
+      <div class="head">
+        <span class="day">9월 20일 (일)</span>
+        <span class="spacer"></span>
+        <button onclick="copyText(this)">복사</button>
+      </div>
+      <pre>2026년 9월 20일 일요일의 식단입니다! 🍽️
+🥄 학관 🥄
+🍚 코테(든든한동) 🍚
+🐣 중식 🐣
+조각치킨까스
+쌀밥
+우동국물
+토마토소스마카로니
+그린샐러드&amp;드레싱
+깍두기
+🐥 석식 🐥
+소떡볶음
+쌀밥
+어묵국
+매운감자조림
+도시락김
+김치
+🍛 믹스 라이스(따스한동) 🍛
+노량진st폭탄비빔밥</pre>
+    </div>
+  </div>
+<script>
+function copyText(btn){
+  var pre = btn.closest('.card').querySelector('pre');
+  var text = pre.textContent;
+  function ok(){
+    var old = btn.textContent;
+    btn.textContent = '복사됨 ✓'; btn.classList.add('done');
+    setTimeout(function(){ btn.textContent = old; btn.classList.remove('done'); }, 1600);
+  }
+  // file:// 등 Clipboard API 를 못 쓰는 환경을 위해 폴백을 둔다
+  function fallback(){
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); ok(); }
+    catch(e){ alert('자동 복사에 실패했습니다. 직접 드래그해서 복사해 주세요.'); }
+    document.body.removeChild(ta);
+  }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(ok, fallback);
+  } else { fallback(); }
+}
+window.addEventListener('DOMContentLoaded', function(){
+  var t = document.querySelector('.card.today');
+  if (t) t.scrollIntoView({block:'center'});
+});
+
+// file:// 로 열면 서비스워커 등록이 막힌다. 그래도 페이지는 멀쩡하니 무시한다.
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('sw.js').catch(function () {});
+  });
+}
+</script>
+</body>
+</html>
