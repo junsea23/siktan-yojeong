@@ -14,9 +14,11 @@
 <meta name="apple-mobile-web-app-title" content="식단요정">
 <style>
 :root{--bg:#f6f7f9;--card:#fff;--fg:#1b1d21;--muted:#6b7280;--line:#e3e6ea;
---accent:#2c77c7;--accent-fg:#fff;--today:#fff8e1;--today-line:#f0c419;}
+--accent:#2c77c7;--accent-fg:#fff;--today:#fff8e1;--today-line:#f0c419;
+--warn-bg:#fff4e5;--warn-line:#e9b872;--warn-fg:#8a5a00;}
 @media(prefers-color-scheme:dark){:root{--bg:#16181d;--card:#1f2229;--fg:#e8eaed;
---muted:#9aa0a6;--line:#31353d;--accent:#4b9fea;--today:#2a2718;--today-line:#c9a227;}}
+--muted:#9aa0a6;--line:#31353d;--accent:#4b9fea;--today:#2a2718;--today-line:#c9a227;
+--warn-bg:#2e2517;--warn-line:#7a5f2a;--warn-fg:#e8c489;}}
 *{box-sizing:border-box}
 body{margin:0;padding:24px calc(16px + env(safe-area-inset-right)) calc(64px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));background:var(--bg);color:var(--fg);
 font-family:"Malgun Gothic","Apple SD Gothic Neo",system-ui,sans-serif;line-height:1.5}
@@ -35,6 +37,9 @@ button{font:inherit;font-size:13px;padding:7px 16px;border-radius:8px;border:0;
 background:var(--accent);color:var(--accent-fg);cursor:pointer}
 button:hover{filter:brightness(1.08)}
 button.done{background:#2e9e5b}
+button.locked{background:var(--card);color:var(--warn-fg);border:1px solid var(--warn-line)}
+.warn{background:var(--warn-bg);border:1px solid var(--warn-line);color:var(--warn-fg);
+border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:13px;line-height:1.6}
 pre{margin:0;padding:14px;white-space:pre-wrap;word-break:break-word;
 font-family:inherit;font-size:14px}
 .card.is-empty pre{color:var(--muted)}
@@ -48,7 +53,8 @@ pre b{font-weight:700}
 <body>
   <div class="wrap">
     <h1>🍽️ 식단요정 · 2026-W38</h1>
-    <div class="sub">복사 버튼을 누르고 단톡방에 붙여넣으세요. · 생성 2026-09-14 11:54</div>
+    <div class="sub">복사 버튼을 누르고 단톡방에 붙여넣으세요. · 생성 2026-09-14 12:01</div>
+
     <div class="card today">
       <div class="head">
         <span class="day">9월 14일 (월)</span><span class="badge">오늘</span>
@@ -751,7 +757,19 @@ or
     </div>
   </div>
 <script>
+var PENDING = [];
+
 function copyText(btn){
+  // 아직 식단을 안 올린 식당이 있으면 실수로 올리지 않도록 한 번 확인한다
+  if (btn.classList.contains('locked')) {
+    var msg = [
+      PENDING.join(', ') + ' 식단이 아직 안 올라왔습니다.',
+      '',
+      '지금 복사하면 그 식당이 빠진 채로 올라갑니다.',
+      '그래도 복사할까요?'
+    ].join('\n');
+    if (!window.confirm(msg)) return;
+  }
   var pre = btn.closest('.card').querySelector('pre');
   var text = pre.textContent;
   function ok(){
