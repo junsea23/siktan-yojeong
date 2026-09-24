@@ -86,7 +86,7 @@ font-size:13px;padding:8px 16px;border-radius:999px;opacity:0;transition:opacity
     <nav class="tabs"><a href="#" data-view="week">이번 주</a><a href="#settings" data-view="settings">발송 설정</a><span class="spacer"></span><button id="refresh-btn" onclick="refreshMenus()">↻ 불러오기</button></nav>
     <div id="refresh-box" class="panel" hidden></div>
     <section id="view-week">
-    <div class="sub">복사 버튼을 누르고 단톡방에 붙여넣으세요. · 생성 2026-09-24 15:23</div>
+    <div class="sub">복사 버튼을 누르고 단톡방에 붙여넣으세요. · 생성 2026-09-24 15:28</div>
 
     <div class="card">
       <div class="head">
@@ -545,7 +545,7 @@ or
   </div>
 <script>
 var PENDING = [];
-var TODAY = {"date": "2026-09-24", "ready": false, "skip_reason": "공휴일: 추석 전날", "pending": [], "empty": false, "review": {"required": true, "reasons": ["연 식당 수 급감: 평소 9곳 → 오늘 1곳", "메뉴 양 급감: 평소 90줄 → 오늘 2줄", "특이 키워드: 추석"], "calendar_ok": true}, "text": "2026년 9월 24일 목요일의 식단입니다! 🍽️\n\n━━━ 🥗 더그레이스테이블 ━━━\n\n🐣 중식\n추석\n\n🐥 석식\n추석", "generated": "2026-09-24 15:23"};
+var TODAY = {"date": "2026-09-24", "ready": false, "skip_reason": "공휴일: 추석 전날", "pending": [], "empty": false, "review": {"required": true, "reasons": ["연 식당 수 급감: 평소 9곳 → 오늘 1곳", "메뉴 양 급감: 평소 90줄 → 오늘 2줄", "특이 키워드: 추석"], "calendar_ok": true}, "text": "2026년 9월 24일 목요일의 식단입니다! 🍽️\n\n━━━ 🥗 더그레이스테이블 ━━━\n\n🐣 중식\n추석\n\n🐥 석식\n추석", "generated": "2026-09-24 15:28"};
 
 function copyText(btn){
   // 아직 식단을 안 올린 식당이 있으면 실수로 올리지 않도록 한 번 확인한다
@@ -817,101 +817,35 @@ window.addEventListener('hashchange', route);
 window.addEventListener('DOMContentLoaded', route);
 
 
-var GH_REPO = 'junsea23/siktan-code';
-var GH_KEY = 'siktan-gh-token';
-function ghToken(){ try { return localStorage.getItem(GH_KEY) || ''; } catch(e){ return ''; } }
-
 function refreshBox(html){
   var box = document.getElementById('refresh-box');
   box.hidden = !html; box.innerHTML = html || '';
-  if (html) box.scrollIntoView({block: 'nearest'});
   return box;
 }
 
-function askToken(msg){
-  var box = refreshBox(
-    '<h2>불러오기 준비 (한 번만)</h2>' + (msg ? '<div class="warn">' + esc(msg) + '</div>' : '') +
-    '<ol><li><a href="https://github.com/settings/personal-access-tokens/new?name=siktan-refresh&description=%EC%8B%9D%EB%8B%A8%EC%9A%94%EC%A0%95+%EB%B6%88%EB%9F%AC%EC%98%A4%EA%B8%B0&target_name=junsea23&expires_in=366&actions=write" target="_blank" rel="noopener">여기를 눌러 GitHub 토큰 만들기</a></li>' +
-    '<li><b>Repository access</b> 에서 <b>Only select repositories</b> → <b>siktan-code</b> 선택</li>' +
-    '<li>맨 아래 <b>Generate token</b> → 나온 토큰(github_pat_…) 복사</li>' +
-    '<li>아래 칸에 붙여넣고 저장</li></ol>' +
-    '<div class="actions"><input type="text" id="gh-token" placeholder="github_pat_..." style="flex:1;width:auto;letter-spacing:0;text-align:left">' +
-    '<button id="gh-save">저장</button></div>' +
-    '<p class="muted">토큰은 이 브라우저에만 저장됩니다. 수집 작업을 돌리는 권한만 있어요.</p>');
-  document.getElementById('gh-save').onclick = function(){
-    var v = document.getElementById('gh-token').value.trim();
-    if (!v) return;
-    try { localStorage.setItem(GH_KEY, v); } catch(e){}
-    refreshMenus();
-  };
-}
-
-function gh(path, body){
-  return fetch('https://api.github.com/repos/' + GH_REPO + path, {
-    method: body ? 'POST' : 'GET',
-    headers: { 'Authorization': 'Bearer ' + ghToken(), 'Accept': 'application/vnd.github+json' },
-    body: body ? JSON.stringify(body) : undefined,
-    cache: 'no-store'
-  });
-}
-
-function generatedNow(){
-  return fetch('today.json?t=' + Date.now(), { cache: 'no-store' })
-    .then(function(r){ return r.json(); }).then(function(d){ return d.generated || ''; })
-    .catch(function(){ return ''; });
-}
-
 function refreshMenus(){
-  if (!ghToken()) { askToken(); return; }
   var btn = document.getElementById('refresh-btn');
+  var mine = (TODAY && TODAY.generated) || '';
   btn.disabled = true;
-  var started = Date.now();
-  function done(html){ btn.disabled = false; refreshBox(html); }
-  function status(text){
-    refreshBox('<p>⏳ ' + esc(text) + ' <span class="muted">(' + Math.round((Date.now() - started) / 1000) + '초)</span></p>');
-  }
-  status('히즈넷에서 불러오도록 요청하는 중…');
-  generatedNow().then(function(before){
-    return gh('/actions/workflows/daily.yml/dispatches', { ref: 'main' }).then(function(res){
-      if (res.status === 401 || res.status === 403 || res.status === 404) {
-        btn.disabled = false;
-        askToken('토큰이 틀렸거나 만료됐거나 권한이 없어요. 새로 만들어 주세요.');
+  refreshBox('<p>⏳ 불러오는 중…</p>');
+  fetch('today.json?t=' + Date.now(), { cache: 'no-store' })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (d.generated && d.generated !== mine) {
+        refreshBox('<p>새 식단을 불러왔어요 (' + esc(d.generated) + ' 수집). 새로고침합니다</p>');
+        // 브라우저에 남은 옛 페이지 대신 새 페이지를 받도록 한 번 강제로 받아 둔다
+        fetch(location.pathname, { cache: 'reload' }).finally(function(){ location.reload(); });
         return;
       }
-      if (res.status !== 204) { done('<div class="warn">요청 실패 (HTTP ' + res.status + ')</div>'); return; }
-      poll(before);
+      btn.disabled = false;
+      refreshBox('<p>지금 보고 있는 게 최신이에요. <span class="muted">마지막 수집 ' + esc(mine) +
+        ' · 낮(06~21시)에는 20분마다 히즈넷에서 새로 받아요</span></p>');
+      setTimeout(function(){ refreshBox(''); }, 6000);
+    })
+    .catch(function(){
+      btn.disabled = false;
+      refreshBox('<div class="warn">인터넷 연결을 확인해 주세요.</div>');
     });
-  }).catch(function(){ done('<div class="warn">인터넷 연결을 확인해 주세요.</div>'); });
-
-  // 새 today.json 이 올라올 때까지 10초마다 확인한다. 수집 작업이 실패하면 바로 알린다.
-  function poll(before){
-    var tick = setInterval(function(){
-      status('불러오는 중… 보통 1~2분 걸려요');
-      if (Date.now() - started > 6 * 60 * 1000) {
-        clearInterval(tick);
-        done('<div class="warn">6분이 지나도 새 식단이 안 올라왔어요. ' +
-          '<a href="https://github.com/' + GH_REPO + '/actions" target="_blank" rel="noopener">작업 기록</a>을 확인해 주세요.</div>');
-        return;
-      }
-      generatedNow().then(function(now){
-        if (now && now !== before) {
-          clearInterval(tick);
-          status('새 식단이 올라왔어요. 새로고침합니다');
-          // 브라우저 캐시에 남은 옛 페이지 대신 새 페이지를 받도록 한 번 강제로 받아 둔다
-          fetch(location.pathname, { cache: 'reload' }).finally(function(){ location.reload(); });
-          return;
-        }
-        return gh('/actions/runs?event=workflow_dispatch&per_page=1').then(function(r){ return r.json(); }).then(function(d){
-          var run = d.workflow_runs && d.workflow_runs[0];
-          if (run && new Date(run.created_at).getTime() >= started - 60000 && run.status === 'completed' && run.conclusion !== 'success') {
-            clearInterval(tick);
-            done('<div class="warn">불러오기에 실패했어요 (' + esc(run.conclusion) + '). ' +
-              '<a href="' + esc(run.html_url) + '" target="_blank" rel="noopener">자세히</a></div>');
-          }
-        });
-      }).catch(function(){});
-    }, 10000);
-  }
 }
 
 // file:// 로 열면 서비스워커 등록이 막힌다. 그래도 페이지는 멀쩡하니 무시한다.
