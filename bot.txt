@@ -1,5 +1,5 @@
 /**
- * 식단요정 카톡 봇 (메신저봇R, API2)
+ * 식단요정 카톡 봇 (메신저봇R — API2 · 레거시 API 둘 다 동작)
  *
  * 평일 아침, 웹앱에서 정한 시각에 today.json 을 받아 웹앱에서 고른 단톡방에
  * 오늘 식단을 보낸다. today.json 은 GitHub Actions 가 새벽에 만들어 Pages 에 둔다.
@@ -40,7 +40,15 @@ var REVIEW_LEAD = 60;      // 검토 알림을 설정 시각 몇 분 전에 띄�
 var REVIEW_EXPIRE = 180;   // 설정 시각부터 몇 분까지 수락을 기다릴지
 var NOTI_ID = 8765;
 
-var bot = BotManager.getCurrentBot();
+// 봇을 API2 로 만들었는지 예전 방식(레거시)으로 만들었는지에 따라 쓰는 함수가 다르다.
+// typeof 는 없는 이름이어도 오류를 내지 않는다.
+var API2 = typeof BotManager !== "undefined";
+var bot = API2 ? BotManager.getCurrentBot() : null;
+
+/** 방에 보내기. 그 방 알림을 아직 못 받았으면 false. */
+function sendTo(room, text) {
+  return API2 ? bot.send(room, text) : Api.replyRoom(room, text, true);
+}
 var LOCK = new java.util.concurrent.locks.ReentrantLock();
 var startedAt = stamp(new java.util.Date());
 var lastTick = "";
@@ -299,7 +307,7 @@ function tick() {
     finish(s, "skipped", "보낼 텍스트 없음");
     return;
   }
-  if (bot.send(st.room, data.text)) {
+  if (sendTo(st.room, data.text)) {
     finish(s, "sent", "");
     return;
   }
@@ -403,7 +411,7 @@ function apiTest() {
   } catch (e) {
     return httpError(502, "today.json 받기 실패: " + e);
   }
-  if (!bot.send(settings.room, text)) {
+  if (!sendTo(settings.room, text)) {
     return httpError(409, "'" + settings.room + "' 방 알림을 아직 못 받았어요. 그 방에 메시지가 한 번 온 뒤에 다시 해 주세요");
   }
   addLog({ date: today(), result: "test", room: settings.room, reason: "" });
@@ -523,7 +531,7 @@ try {
       }
     }
   } })).start();
-  Log.i("[식단요정] 설정 서버 127.0.0.1:" + PORT + " · 연결 코드 " + settings.code);
+  Log.i("[식단요정] 설정 서버 127.0.0.1:" + PORT + " · 연결 코드 " + settings.code + (API2 ? " (API2)" : " (레거시 API)"));
 } catch (e) {
   Log.e("[식단요정] 설정 서버를 못 열었습니다 (" + e + "). 봇을 껐다 켜 보세요. 연결 코드 " + settings.code);
 }
@@ -537,20 +545,33 @@ timer.scheduleAtFixedRate(
 );
 
 // 재컴파일할 때 이전 타이머·서버가 남아 두 번 보내거나 포트를 잡고 있지 않도록 끈다
-bot.addListener(Event.START_COMPILE, function () {
+function stopAll() {
   timer.cancel();
   try { if (server) server.close(); } catch (e) {}
-});
+}
 
 // ---- 방 목록 수집 + 수동 확인 "/식단" ----
-bot.addListener(Event.MESSAGE_CREATED, function (msg) {
+function onMessage(room, content, isGroup, reply) {
   // 잠금을 걸지 않는다: 발송 확인이 today.json 을 받는 동안 메시지 처리가 멈추면 안 된다
-  seeRoom(String(msg.room), msg.isGroupChat);
-  if (msg.content.trim() !== "/식단") return;
+  seeRoom(String(room), isGroup);
+  if (String(content).trim() !== "/식단") return;
   try {
     var data = fetchToday();
-    msg.reply(data.ready && data.text ? data.text : "식단요정: 보내지 않음 - " + (data.skip_reason || "식단 없음"));
+    reply(data.ready && data.text ? data.text : "식단요정: 보내지 않음 - " + (data.skip_reason || "식단 없음"));
   } catch (e) {
-    msg.reply("식단요정: today.json 받기 실패 - " + e);
+    reply("식단요정: today.json 받기 실패 - " + e);
   }
-});
+}
+
+if (API2) {
+  bot.addListener(Event.START_COMPILE, stopAll);
+  bot.addListener(Event.MESSAGE_CREATED, function (msg) {
+    onMessage(msg.room, msg.content, msg.isGroupChat, function (t) { msg.reply(t); });
+  });
+}
+
+// 레거시 API 가 부르는 함수들 (API2 에서는 쓰이지 않는다)
+function onStartCompile() { stopAll(); }
+function response(room, msg, sender, isGroupChat, replier) {
+  onMessage(room, msg, isGroupChat, function (t) { replier.reply(t); });
+}
