@@ -1,4 +1,4 @@
-const CACHE = 'siktan-202609240900';
+const CACHE = 'siktan-202609241223';
 const ASSETS = [
   './', './index.html', './manifest.webmanifest',
   './icon-192.png', './icon-512.png', './apple-touch-icon.png'
@@ -19,7 +19,8 @@ self.addEventListener('activate', (e) => {
 });
 
 self.addEventListener('fetch', (e) => {
-  if (e.request.method !== 'GET') return;
+  // 봇(127.0.0.1) 호출 같은 다른 출처 요청은 건드리지 않는다. 캐시되면 안 된다.
+  if (e.request.method !== 'GET' || new URL(e.request.url).origin !== location.origin) return;
   e.respondWith(
     fetch(e.request)
       .then((res) => {
