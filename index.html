@@ -48,12 +48,45 @@ pre b{font-weight:700}
 .h-sec{display:inline-block;margin-top:2px;color:var(--accent);letter-spacing:.3px}
 .h-rest{font-size:15px}
 .h-meal{color:var(--muted);font-weight:600}
+.tabs{display:flex;gap:6px;margin:10px 0 16px;align-items:center}
+.tabs .spacer{flex:1}
+.tabs button{border-radius:999px;padding:6px 14px}
+#refresh-box a{color:var(--accent)}
+#refresh-box ol{margin:6px 0;padding-left:20px;font-size:13px}
+.tabs a{font-size:13px;padding:6px 14px;border-radius:999px;border:1px solid var(--line);
+color:var(--fg);text-decoration:none;background:var(--card)}
+.tabs a.on{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+a.review-link{display:block;text-decoration:none}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:14px}
+.panel h2{font-size:15px;margin:0 0 10px}
+.muted{color:var(--muted);font-size:12px}
+.row{display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--line)}
+.row:first-of-type{border-top:0}
+.row label{flex:1;display:flex;align-items:center;gap:8px;cursor:pointer}
+.tag{font-size:11px;padding:1px 7px;border-radius:999px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.tag.ok{border-color:#2e9e5b;color:#2e9e5b}
+.tag.wait{border-color:var(--warn-line);color:var(--warn-fg)}
+select,input[type=text]{font:inherit;font-size:15px;padding:6px 10px;border-radius:8px;
+border:1px solid var(--line);background:var(--bg);color:var(--fg)}
+input[type=text]{width:9em;letter-spacing:4px;text-align:center}
+button.ghost{background:var(--card);color:var(--accent);border:1px solid var(--line)}
+button.big{font-size:15px;padding:10px 18px;flex:1}
+.actions{display:flex;gap:8px;margin-top:12px}
+ul.log{list-style:none;margin:0;padding:0;font-size:13px}
+ul.log li{padding:6px 0;border-top:1px solid var(--line)}
+ul.log li:first-child{border-top:0}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1b1d21;color:#fff;
+font-size:13px;padding:8px 16px;border-radius:999px;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:.92}
 </style>
 </head>
 <body>
   <div class="wrap">
     <h1>🍽️ 식단요정 · 2026-W39</h1>
-    <div class="sub">복사 버튼을 누르고 단톡방에 붙여넣으세요. · 생성 2026-09-24 09:00</div>
+    <nav class="tabs"><a href="#" data-view="week">이번 주</a><a href="#settings" data-view="settings">발송 설정</a><span class="spacer"></span><button id="refresh-btn" onclick="refreshMenus()">↻ 불러오기</button></nav>
+    <div id="refresh-box" class="panel" hidden></div>
+    <section id="view-week">
+    <div class="sub">복사 버튼을 누르고 단톡방에 붙여넣으세요. · 생성 2026-09-24 15:41</div>
 
     <div class="card">
       <div class="head">
@@ -506,9 +539,13 @@ or
       </div>
       <pre><b class="h-date">2026년 9월 27일 일요일 식단을 아직 받아오지 못했어요.</b></pre>
     </div>
+    </section>
+    <section id="view-settings" hidden></section>
+    <section id="view-review" hidden></section>
   </div>
 <script>
 var PENDING = [];
+var TODAY = {"date": "2026-09-24", "ready": false, "skip_reason": "공휴일: 추석 전날", "pending": [], "empty": false, "review": {"required": true, "reasons": ["연 식당 수 급감: 평소 9곳 → 오늘 1곳", "메뉴 양 급감: 평소 90줄 → 오늘 2줄", "특이 키워드: 추석"], "calendar_ok": true}, "text": "2026년 9월 24일 목요일의 식단입니다! 🍽️\n\n━━━ 🥗 더그레이스테이블 ━━━\n\n🐣 중식\n추석\n\n🐥 석식\n추석", "generated": "2026-09-24 15:41"};
 
 function copyText(btn){
   // 아직 식단을 안 올린 식당이 있으면 실수로 올리지 않도록 한 번 확인한다
@@ -546,6 +583,278 @@ window.addEventListener('DOMContentLoaded', function(){
   var t = document.querySelector('.card.today');
   if (t) t.scrollIntoView({block:'center'});
 });
+
+
+var BOT = 'http://127.0.0.1:8765';
+var CODE_KEY = 'siktan-bot-code';
+
+function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+  return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function getCode(){ try { return localStorage.getItem(CODE_KEY) || ''; } catch(e){ return ''; } }
+function setCode(v){ try { localStorage.setItem(CODE_KEY, v); } catch(e){} }
+function toast(msg){
+  var t = document.querySelector('.toast');
+  if (!t) { t = document.createElement('div'); t.className = 'toast'; document.body.appendChild(t); }
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._h); t._h = setTimeout(function(){ t.classList.remove('show'); }, 1800);
+}
+
+// 봇 호출. 실패 종류를 구분해 돌려준다: 'offline' (봇 없음) / 'auth' (코드 틀림)
+function bot(path, body){
+  var opt = { method: body ? 'POST' : 'GET', headers: { 'X-Siktan-Code': getCode() }, cache: 'no-store' };
+  if (body) { opt.headers['Content-Type'] = 'application/json'; opt.body = JSON.stringify(body); }
+  return fetch(BOT + path, opt).then(function(res){
+    if (res.status === 401) throw { kind: 'auth' };
+    return res.json().then(function(data){
+      if (!res.ok) throw { kind: 'error', message: data.error || ('HTTP ' + res.status) };
+      return data;
+    });
+  }, function(){ throw { kind: 'offline' }; });
+}
+
+function loadToday(){
+  return fetch('today.json?t=' + Date.now(), { cache: 'no-store' })
+    .then(function(r){ return r.json(); })
+    .catch(function(){ return TODAY; });
+}
+
+var RESULT_TEXT = { sent: '보냄', skipped: '안 보냄', approved: '수락', rejected: '거절', failed: '실패', test: '테스트', expired: '무응답', missed: '시각 놓침' };
+
+function timeOptions(selected){
+  var out = [];
+  for (var m = 6 * 60; m <= 21 * 60; m += 10) {
+    var v = ('0' + Math.floor(m / 60)).slice(-2) + ':' + ('0' + m % 60).slice(-2);
+    out.push('<option' + (v === selected ? ' selected' : '') + '>' + v + '</option>');
+  }
+  return out.join('');
+}
+
+function renderOffline(el, err){
+  if (err && err.kind === 'auth') {
+    el.innerHTML = '<div class="panel"><h2>연결 코드</h2>' +
+      '<p class="muted">메신저봇R 의 식단요정 로그에 뜬 6자리 코드를 입력하세요. 한 번만 하면 됩니다.</p>' +
+      '<div class="actions"><input type="text" inputmode="numeric" maxlength="6" id="code-in" value="' + esc(getCode()) + '">' +
+      '<button id="code-save">연결</button></div></div>';
+    document.getElementById('code-save').onclick = function(){
+      setCode(document.getElementById('code-in').value.replace(/\D/g, ''));
+      route();
+    };
+    return;
+  }
+  if (err && err.kind === 'error') {
+    el.innerHTML = '<div class="warn">봇이 오류를 냈어요: ' + esc(err.message) + '</div>';
+    return;
+  }
+  el.innerHTML = '<div class="warn">봇과 연결되지 않았어요. 봇이 도는 폰에서 열어 주세요.<br>' +
+    '크롬이 “이 기기의 다른 앱·서비스 접근”을 물으면 허용해 주세요.</div>' +
+    '<button class="ghost" onclick="route()">다시 시도</button>';
+}
+
+function renderLog(log){
+  if (!log || !log.length) return '<p class="muted">아직 기록이 없어요.</p>';
+  return '<ul class="log">' + log.slice().reverse().map(function(it){
+    return '<li><b>' + esc(it.date) + '</b> ' + esc(RESULT_TEXT[it.result] || it.result) +
+      (it.room ? ' · ' + esc(it.room) : '') +
+      (it.reason ? '<br><span class="muted">' + esc(it.reason) + '</span>' : '') +
+      ' <span class="muted">' + esc(it.at || '') + '</span></li>';
+  }).join('') + '</ul>';
+}
+
+// 방 목록. 고른 방은 알림 목록에 없어도(직접 입력) 맨 위에 보여 준다.
+function roomRows(rooms, selected){
+  var list = rooms.slice();
+  if (selected && !list.some(function(r){ return r.name === selected; })) {
+    list.unshift({ name: selected, sendable: false, manual: true });
+  }
+  if (!list.length) return '<p class="muted">아직 방이 없어요. 아래에 방 이름을 직접 넣거나, 그 방에 누가 한 번 말하면 자동으로 나타나요.</p>';
+  return list.map(function(r){
+    return '<div class="row"><label><input type="radio" name="room" value="' + esc(r.name) + '"' +
+      (r.name === selected ? ' checked' : '') + '> ' + esc(r.name) +
+      (r.group ? ' <span class="tag">단톡</span>' : '') + '</label>' +
+      (r.sendable ? '<span class="tag ok">지금 보낼 수 있음</span>' : '<span class="tag wait">알림 대기 중</span>') +
+      '</div>';
+  }).join('');
+}
+
+var roomTimer = null;
+
+function showSettings(){
+  var el = document.getElementById('view-settings');
+  el.innerHTML = '<p class="muted">봇 확인 중…</p>';
+  bot('/status').then(function(st){
+    var s = st.settings || {};
+    var roomHtml = '<div id="s-rooms">' + roomRows(st.rooms || [], s.room) + '</div>' +
+      '<div class="actions"><input type="text" id="s-room-name" placeholder="방 이름 직접 입력" ' +
+        'style="flex:1;width:auto;letter-spacing:0;text-align:left"><button id="s-room-add">추가</button>' +
+        '<button class="ghost" id="s-room-clear">선택 취소</button></div>' +
+      '<p class="muted">카톡 알림에 보이는 방 이름 그대로 (1:1 방은 상대 이름). ' +
+        '보내려면 봇을 켠 뒤 그 방에 다른 사람 메시지가 한 번은 와야 해요 — 그 전엔 “알림 대기 중”.</p>';
+
+    el.innerHTML =
+      '<div class="panel"><div class="row"><label><input type="checkbox" id="s-enabled"' + (s.enabled ? ' checked' : '') +
+        '> 자동 발송 켜기</label></div>' +
+        '<div class="row"><label>보낼 시각</label><select id="s-time">' + timeOptions(s.time) + '</select></div>' +
+        '<p class="muted">평일(공휴일 제외)에만 보냅니다. 바꾼 시각은 바로 적용되고, 오늘 이미 보냈으면 내일부터예요.</p></div>' +
+      '<div class="panel"><h2>보낼 방</h2>' + roomHtml + '</div>' +
+      '<div class="panel"><h2>오늘</h2><p>' + esc(st.today && st.today.summary || '') + '</p>' +
+        '<div class="actions"><button class="ghost big" id="s-test">테스트 발송</button>' +
+        '<button class="ghost big" id="s-noti">알림 테스트</button></div>' +
+        '<div class="row"><label><input type="checkbox" id="s-force"' + (s.force_review ? ' checked' : '') +
+        '> 테스트용: 오늘을 검토 대상으로 (주말·공휴일도 무시)</label></div></div>' +
+      '<div class="panel"><h2>최근 7일</h2>' + renderLog(st.log) + '</div>' +
+      '<p class="muted">봇 마지막 응답 ' + esc(st.last_tick || '없음') + ' · 봇 시작 ' + esc(st.started || '') +
+        ' · <a href="#" id="s-recode">연결 코드 다시 입력</a></p>';
+
+    function save(){
+      var picked = el.querySelector('input[name=room]:checked');
+      s.room = picked ? picked.value : (s.room || '');
+      bot('/settings', {
+        room: s.room,
+        time: document.getElementById('s-time').value,
+        enabled: document.getElementById('s-enabled').checked,
+        force_review: document.getElementById('s-force').checked
+      }).then(function(){ toast('저장됨 ✓'); }, function(err){ renderOffline(el, err); });
+    }
+    function bindRooms(){
+      Array.prototype.forEach.call(el.querySelectorAll('input[name=room]'), function(i){ i.onchange = save; });
+    }
+    Array.prototype.forEach.call(el.querySelectorAll('#s-enabled,#s-time,#s-force'), function(i){ i.onchange = save; });
+    bindRooms();
+    document.getElementById('s-room-add').onclick = function(){
+      var name = document.getElementById('s-room-name').value.trim();
+      if (!name) return;
+      bot('/rooms', { name: name }).then(function(r){
+        s.room = name;
+        document.getElementById('s-rooms').innerHTML = roomRows(r.rooms || [], name);
+        document.getElementById('s-room-name').value = '';
+        bindRooms();
+        save();
+      }, function(err){ err.kind === 'error' ? alert(err.message) : renderOffline(el, err); });
+    };
+    // 라디오 버튼은 한 번 고르면 해제가 안 되므로 따로 둔다. 방이 비면 봇은 보내지 않는다.
+    document.getElementById('s-room-clear').onclick = function(){
+      if (!s.room) return;
+      s.room = '';
+      Array.prototype.forEach.call(el.querySelectorAll('input[name=room]'), function(i){ i.checked = false; });
+      save();
+    };
+    // 이 화면을 보는 동안 5초마다 방 목록을 새로 받는다 (새 알림이 온 방이 바로 나타나게)
+    clearInterval(roomTimer);
+    roomTimer = setInterval(function(){
+      if (document.getElementById('view-settings').hidden || !document.getElementById('s-rooms')) {
+        clearInterval(roomTimer); return;
+      }
+      bot('/status').then(function(now){
+        var box = document.getElementById('s-rooms');
+        if (!box) return;
+        box.innerHTML = roomRows(now.rooms || [], s.room);
+        bindRooms();
+      }, function(){});
+    }, 5000);
+    document.getElementById('s-test').onclick = function(){
+      if (!s.room) { alert('보낼 방을 먼저 골라 주세요.'); return; }
+      if (!confirm('“' + s.room + '” 방에 지금 오늘 식단을 보낼까요?')) return;
+      bot('/test', {}).then(function(r){ toast(r.message || '보냈어요'); showSettings(); },
+        function(err){ err.kind === 'error' ? alert(err.message) : renderOffline(el, err); });
+    };
+    document.getElementById('s-noti').onclick = function(){
+      bot('/notify', {}).then(function(r){ toast(r.message || '알림을 띄웠어요'); },
+        function(err){ err.kind === 'error' ? alert(err.message) : renderOffline(el, err); });
+    };
+    document.getElementById('s-recode').onclick = function(e){ e.preventDefault(); renderOffline(el, { kind: 'auth' }); };
+  }, function(err){ renderOffline(el, err); });
+}
+
+function showReview(){
+  var el = document.getElementById('view-review');
+  el.innerHTML = '<p class="muted">불러오는 중…</p>';
+  loadToday().then(function(t){
+    t = t || {};
+    var rv = t.review || {};
+    var head = '<div class="panel"><h2>' + esc(t.date || '') + ' 검토</h2>';
+    if (!t.ready) {
+      head += '<p>오늘은 보내지 않는 날이에요: ' + esc(t.skip_reason || '') + '</p>';
+    } else if (rv.required) {
+      head += '<ul>' + (rv.reasons || []).map(function(r){ return '<li>' + esc(r) + '</li>'; }).join('') + '</ul>';
+    } else {
+      head += '<p>오늘은 평소와 같아서 확인할 게 없어요.</p>';
+    }
+    if (rv.calendar_ok === false) head += '<p class="muted">⚠ 학사일정 미확인 (홈페이지에서 못 받아 수동 목록만 봤어요)</p>';
+    head += '<div id="rv-bot" class="muted">봇 확인 중…</div></div>';
+    el.innerHTML = head + '<div class="card"><pre>' + esc(t.text || '(보낼 식단 없음)') + '</pre></div>';
+
+    bot('/status').then(function(st){
+      var s = st.settings || {}, d = st.today || {};
+      var box = document.getElementById('rv-bot');
+      var html = '<p>보낼 방 <b>' + esc(s.room || '(미선택)') + '</b> · 시각 <b>' + esc(s.time || '') + '</b></p>' +
+        '<p>' + esc(d.summary || '') + '</p>';
+      // 봇이 아직 오늘을 안 봤어도(설정 시각 1시간 전 이전) today.json 기준으로 미리 결정할 수 있다
+      var needed = d.review_needed || (t.ready && rv.required) || s.force_review;
+      var open = d.date === t.date && needed && !d.decision && !d.done;
+      if (open) {
+        html += '<div class="actions"><button class="big" id="rv-yes">보내기</button>' +
+          '<button class="ghost big" id="rv-no">오늘 건너뛰기</button></div>';
+      }
+      box.className = '';
+      box.innerHTML = html;
+      if (!open) return;
+      function decide(decision){
+        bot('/review', { date: t.date, decision: decision }).then(function(r){
+          toast(r.message || '저장됨'); showReview();
+        }, function(err){ err.kind === 'error' ? alert(err.message) : renderOffline(box, err); });
+      }
+      document.getElementById('rv-yes').onclick = function(){ decide('approve'); };
+      document.getElementById('rv-no').onclick = function(){ decide('skip'); };
+    }, function(err){ renderOffline(document.getElementById('rv-bot'), err); });
+  });
+}
+
+function route(){
+  var view = (location.hash || '').replace('#', '') || 'week';
+  if (view !== 'settings' && view !== 'review') view = 'week';
+  ['week', 'settings', 'review'].forEach(function(v){
+    document.getElementById('view-' + v).hidden = v !== view;
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('.tabs a'), function(a){
+    a.classList.toggle('on', a.getAttribute('data-view') === view);
+  });
+  if (view === 'settings') showSettings();
+  if (view === 'review') showReview();
+}
+window.addEventListener('hashchange', route);
+window.addEventListener('DOMContentLoaded', route);
+
+
+function refreshBox(html){
+  var box = document.getElementById('refresh-box');
+  box.hidden = !html; box.innerHTML = html || '';
+  return box;
+}
+
+function refreshMenus(){
+  var btn = document.getElementById('refresh-btn');
+  var mine = (TODAY && TODAY.generated) || '';
+  btn.disabled = true;
+  refreshBox('<p>⏳ 불러오는 중…</p>');
+  fetch('today.json?t=' + Date.now(), { cache: 'no-store' })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (d.generated && d.generated !== mine) {
+        refreshBox('<p>새 식단을 불러왔어요 (' + esc(d.generated) + ' 수집). 새로고침합니다</p>');
+        // 브라우저에 남은 옛 페이지 대신 새 페이지를 받도록 한 번 강제로 받아 둔다
+        fetch(location.pathname, { cache: 'reload' }).finally(function(){ location.reload(); });
+        return;
+      }
+      btn.disabled = false;
+      refreshBox('<p>지금 보고 있는 게 최신이에요. <span class="muted">마지막 수집 ' + esc(mine) +
+        ' · 낮(06~21시)에는 20분마다 히즈넷에서 새로 받아요</span></p>');
+      setTimeout(function(){ refreshBox(''); }, 6000);
+    })
+    .catch(function(){
+      btn.disabled = false;
+      refreshBox('<div class="warn">인터넷 연결을 확인해 주세요.</div>');
+    });
+}
 
 // file:// 로 열면 서비스워커 등록이 막힌다. 그래도 페이지는 멀쩡하니 무시한다.
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {

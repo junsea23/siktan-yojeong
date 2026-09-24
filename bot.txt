@@ -1,0 +1,614 @@
+/**
+ * 식단요정 카톡 봇 (메신저봇R — API2 · 레거시 API 둘 다 동작)
+ *
+ * 평일 아침, 웹앱에서 정한 시각에 today.json 을 받아 웹앱에서 고른 단톡방에
+ * 오늘 식단을 보낸다. today.json 은 GitHub Actions 가 새벽에 만들어 Pages 에 둔다.
+ *
+ * 보내지 않는 경우 (기록에 남김):
+ *   - 주말 (봇이 직접 확인) · 공휴일 · 미등록 식당 · 식단 없음 (today.json 의 skip_reason)
+ *   - today.json 이 아직 어제 것 -> 설정 시각 + 30분까지 1분마다 다시 확인
+ *   - 설정 시각 + 30분이 지나서야 확인하게 됨 (폰이 잠들었거나 봇을 늦게 켬)
+ *   - 검토 대상인 날에 내가 '오늘 건너뛰기'를 눌렀거나 3시간 동안 응답이 없음
+ *
+ * 검토 대상(today.json 의 review.required)인 날에는 설정 시각 1시간 전에 폰 알림을
+ * 띄운다. 알림을 누르면 웹앱 검토 화면이 열리고, '보내기'를 눌러야만 보낸다.
+ *
+ * 웹앱은 이 봇이 폰 안에 연 서버(http://127.0.0.1:8765)로 방 목록을 읽고 설정을
+ * 저장한다. 방 이름은 폰 밖으로 나가지 않는다. 연결 코드(6자리)는 컴파일할 때
+ * 로그에 뜬다.
+ *
+ * 알림 답장 방식이라, 폰을 켠 뒤(또는 이 스크립트를 컴파일한 뒤) 보낼 방에
+ * 다른 사람의 메시지 알림이 한 번은 와야 보낼 수 있다.
+ *
+ * 수동 확인: 아무 방에서 "/식단" 이라고 쓰면 그 방에 바로 답한다.
+ */
+
+// ---- 고칠 일이 거의 없는 값 ------------------------------------------
+var PAGES = "https://junsea23.github.io/siktan-yojeong/";
+var ORIGIN = "https://junsea23.github.io";  // 이 주소의 웹앱만 설정을 바꿀 수 있다
+var PORT = 8765;
+var DIR = "sdcard/msgbot/";
+// ---------------------------------------------------------------------
+
+var URL = PAGES + "today.json";
+var SETTINGS_FILE = DIR + "siktan_settings.json";
+var STATE_FILE = DIR + "siktan_state.json";
+var LOG_FILE = DIR + "siktan_log.json";
+var ROOMS_FILE = DIR + "siktan_rooms.json";
+
+var SEND_WINDOW = 30;      // 설정 시각부터 몇 분까지 재시도
+var REVIEW_LEAD = 60;      // 검토 알림을 설정 시각 몇 분 전에 띄울지
+var REVIEW_EXPIRE = 180;   // 설정 시각부터 몇 분까지 수락을 기다릴지
+var NOTI_ID = 8765;
+
+// 봇을 API2 로 만들었는지 예전 방식(레거시)으로 만들었는지에 따라 쓰는 함수가 다르다.
+// typeof 는 없는 이름이어도 오류를 내지 않는다.
+var API2 = typeof BotManager !== "undefined";
+var bot = API2 ? BotManager.getCurrentBot() : null;
+
+/** 방에 보내기. 그 방 알림을 아직 못 받았으면 false. */
+function sendTo(room, text) {
+  return API2 ? bot.send(room, text) : Api.replyRoom(room, text, true);
+}
+var LOCK = new java.util.concurrent.locks.ReentrantLock();
+var startedAt = stamp(new java.util.Date());
+var lastTick = "";
+var seenSinceCompile = {};  // 컴파일 뒤 알림을 받은 방 = 지금 보낼 수 있는 방
+var roomsWrittenAt = {};
+
+// ---- 공용 --------------------------------------------------------------
+
+function locked(fn) {
+  LOCK.lock();
+  try { return fn(); } finally { LOCK.unlock(); }
+}
+
+function fmt(pattern, d) {
+  return String(new java.text.SimpleDateFormat(pattern).format(d || new java.util.Date()));
+}
+function stamp(d) { return fmt("yyyy-MM-dd HH:mm", d); }
+function today() { return fmt("yyyy-MM-dd"); }
+function nowMinutes() {
+  var c = java.util.Calendar.getInstance();
+  return c.get(java.util.Calendar.HOUR_OF_DAY) * 60 + c.get(java.util.Calendar.MINUTE);
+}
+function isWeekend() {
+  var dow = java.util.Calendar.getInstance().get(java.util.Calendar.DAY_OF_WEEK);
+  return dow === java.util.Calendar.SATURDAY || dow === java.util.Calendar.SUNDAY;
+}
+function toMinutes(hhmm) {
+  var p = String(hhmm).split(":");
+  return Number(p[0]) * 60 + Number(p[1]);
+}
+function daysAgo(n) {
+  var c = java.util.Calendar.getInstance();
+  c.add(java.util.Calendar.DATE, -n);
+  return fmt("yyyy-MM-dd", c.getTime());
+}
+
+function readJson(path, fallback) {
+  try {
+    var raw = FileStream.read(path);
+    return raw ? JSON.parse(String(raw)) : fallback;
+  } catch (e) {
+    return fallback;
+  }
+}
+function writeJson(path, value) {
+  try {
+    FileStream.write(path, JSON.stringify(value));
+  } catch (e) {
+    Log.e("[식단요정] 저장 실패 " + path + ": " + e);
+  }
+}
+
+// ---- 설정 · 오늘 상태 · 기록 --------------------------------------------
+
+function loadSettings() {
+  var s = readJson(SETTINGS_FILE, {});
+  if (!s.code) s.code = String(100000 + Math.floor(Math.random() * 900000));
+  if (!s.time) s.time = "07:00";
+  if (s.enabled === undefined) s.enabled = true;
+  if (s.room === undefined) s.room = "";
+  if (s.force_review === undefined) s.force_review = false;
+  return s;
+}
+var settings = loadSettings();
+writeJson(SETTINGS_FILE, settings);  // 처음 만든 연결 코드를 저장
+
+/** 오늘 발송 상태. 날짜가 바뀌면 새로 시작한다. */
+function loadState() {
+  var s = readJson(STATE_FILE, {});
+  if (s.date !== today()) s = { date: today() };
+  return s;
+}
+function saveState(s) { writeJson(STATE_FILE, s); }
+
+function loadLog() { return readJson(LOG_FILE, []); }
+
+/**
+ * 기록 추가. 하루치 결과(test 제외)는 날짜마다 하나만 남기고 덮어쓴다.
+ * 최근 7일만 보관한다.
+ */
+function addLog(entry) {
+  entry.at = fmt("HH:mm");
+  var since = daysAgo(6);
+  var log = loadLog().filter(function (it) {
+    if (it.date < since) return false;
+    return entry.result === "test" || it.result === "test" || it.date !== entry.date;
+  });
+  log.push(entry);
+  writeJson(LOG_FILE, log);
+}
+
+/** 그날 결과를 확정한다. 확정된 날은 더 보지 않는다. */
+function finish(s, result, reason, alertMe) {
+  s.done = true;
+  s.result = result;
+  s.reason = reason || "";
+  saveState(s);
+  addLog({ date: s.date, result: result, room: result === "sent" ? settings.room : "", reason: s.reason });
+  Log.i("[식단요정] " + result + (reason ? " - " + reason : ""));
+  if (alertMe) notify("식단요정: 오늘은 보내지 않았어요", reason, false);
+}
+
+// ---- 방 목록 ------------------------------------------------------------
+
+var rooms = readJson(ROOMS_FILE, {});
+
+function seeRoom(name, isGroup) {
+  seenSinceCompile[name] = true;
+  var now = Date.now();
+  rooms[name] = { group: !!isGroup, last_seen: stamp(new java.util.Date()) };  // 직접 추가한 방도 알림이 오면 일반 방이 된다
+  // 바쁜 단톡방이라도 파일은 1분에 한 번만 쓴다
+  if (!roomsWrittenAt[name] || now - roomsWrittenAt[name] > 60000) {
+    roomsWrittenAt[name] = now;
+    writeJson(ROOMS_FILE, rooms);
+  }
+}
+
+function roomList() {
+  return Object.keys(rooms).map(function (name) {
+    return {
+      name: name,
+      group: rooms[name].group,
+      last_seen: rooms[name].last_seen,
+      manual: !!rooms[name].manual,
+      sendable: !!seenSinceCompile[name]
+    };
+  }).sort(function (a, b) { return a.last_seen < b.last_seen ? 1 : -1; });
+}
+
+// ---- 폰 알림 --------------------------------------------------------------
+
+function context() {
+  try { return App.getContext(); } catch (e) {}
+  try { return Api.getContext(); } catch (e) {}
+  return android.app.ActivityThread.currentApplication();
+}
+
+/** 안드로이드 알림. openReview 면 누를 때 웹앱 검토 화면을 연다. */
+function notify(title, text, openReview) {
+  try {
+    var ctx = context();
+    var SDK = android.os.Build.VERSION.SDK_INT;
+    var nm = ctx.getSystemService(android.content.Context.NOTIFICATION_SERVICE);
+    var builder;
+    if (SDK >= 26) {
+      nm.createNotificationChannel(new android.app.NotificationChannel(
+        "siktan", "식단요정", android.app.NotificationManager.IMPORTANCE_HIGH));
+      builder = new android.app.Notification.Builder(ctx, "siktan");
+    } else {
+      builder = new android.app.Notification.Builder(ctx);
+    }
+    builder.setSmallIcon(android.R.drawable.ic_dialog_info)
+      .setContentTitle(title)
+      .setContentText(text)
+      .setStyle(new android.app.Notification.BigTextStyle().bigText(text))
+      .setAutoCancel(true);
+    var intent = new android.content.Intent(
+      android.content.Intent.ACTION_VIEW,
+      android.net.Uri.parse(PAGES + (openReview ? "#review" : "#settings")));
+    intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
+    var flags = android.app.PendingIntent.FLAG_UPDATE_CURRENT;
+    if (SDK >= 23) flags |= android.app.PendingIntent.FLAG_IMMUTABLE;
+    builder.setContentIntent(android.app.PendingIntent.getActivity(ctx, 0, intent, flags));
+    nm.notify(NOTI_ID, builder.build());
+    return true;
+  } catch (e) {
+    Log.e("[식단요정] 알림 실패: " + e);
+    return false;
+  }
+}
+
+// ---- today.json -------------------------------------------------------------
+
+function fetchToday() {
+  // Pages 캐시(최대 10분)를 피하려고 매번 다른 주소로 요청한다
+  var body = org.jsoup.Jsoup.connect(URL + "?t=" + Date.now())
+    .ignoreContentType(true)
+    .timeout(15000)
+    .execute()
+    .body();
+  return JSON.parse(String(body));
+}
+
+// ---- 1분마다 도는 판단 ------------------------------------------------------
+
+/** 이 분이 지나면 그날은 보내지 않는다. 검토에서 수락한 날만 수락 마감까지 기다린다. */
+function lastSendMinute(s, T) {
+  return s.review_needed && s.decision === "approve"
+    ? Math.min(T + REVIEW_EXPIRE, 24 * 60 - 1)
+    : T + SEND_WINDOW;
+}
+
+function tick() {
+  lastTick = stamp(new java.util.Date());
+  var st = settings;
+  if (!st.enabled || !st.room) return;
+
+  var s = loadState();
+  if (s.done) return;
+
+  var mins = nowMinutes();
+  var T = toMinutes(st.time);
+  var expire = Math.min(T + REVIEW_EXPIRE, 24 * 60 - 1);
+  if (mins < T - REVIEW_LEAD) return;
+
+  if (isWeekend() && !st.force_review) {
+    finish(s, "skipped", "주말");
+    return;
+  }
+
+  // 설정 시각 전에는 검토 알림용으로 5분마다만 확인한다
+  if (mins < T && s.checked !== undefined && mins - s.checked < 5) return;
+  s.checked = mins;
+
+  var data;
+  try {
+    data = fetchToday();
+  } catch (e) {
+    s.error = "today.json 받기 실패: " + e;
+    if (mins >= (s.review_needed ? expire : T + SEND_WINDOW)) finish(s, "failed", s.error, true);
+    else saveState(s);
+    return;
+  }
+
+  if (data.date !== s.date) {
+    s.error = "아직 어제 데이터 (" + data.date + ")";
+    if (mins >= T + SEND_WINDOW) finish(s, "failed", s.error, true);
+    else saveState(s);
+    return;
+  }
+
+  if (!data.ready && !st.force_review) {
+    var why = data.skip_reason || "보낼 식단 없음";
+    // 주말·공휴일은 조용히, 미등록 식당처럼 예상 밖인 날만 알려 준다
+    finish(s, "skipped", why, why.indexOf("미등록") === 0);
+    return;
+  }
+
+  var review = data.review || {};
+  s.review_needed = !!(st.force_review || review.required);
+  s.reasons = (st.force_review ? ["테스트: 검토 강제"] : []).concat(review.reasons || []);
+
+  if (s.review_needed && s.decision !== "approve") {
+    if (s.decision === "skip") {
+      finish(s, "rejected", "오늘 건너뛰기 선택");
+      return;
+    }
+    if (mins >= expire) {
+      finish(s, "expired", "검토 요청에 응답이 없어 보내지 않음", true);
+      return;
+    }
+    if (!s.notified || (mins >= T && !s.renotified)) {
+      if (s.notified) s.renotified = true;
+      s.notified = fmt("HH:mm");
+      notify("오늘 식단 확인 필요", s.reasons.join(" · ") + "\n눌러서 보내기 / 건너뛰기", true);
+    }
+    saveState(s);
+    return;
+  }
+
+  if (mins < T) { saveState(s); return; }
+
+  // 폰이 잠들었거나 봇이 늦게 켜져 발송 시각을 놓쳤으면 한낮에 뒤늦게 보내지 않는다
+  if (mins > lastSendMinute(s, T)) {
+    finish(s, "missed", st.time + " 발송 시각을 놓쳐 보내지 않음 (폰·봇이 그때 멈춰 있었음)", true);
+    return;
+  }
+
+  if (!data.text) {
+    finish(s, "skipped", "보낼 텍스트 없음");
+    return;
+  }
+  if (sendTo(st.room, data.text)) {
+    finish(s, "sent", "");
+    return;
+  }
+  // 방 세션이 없음: 그 방 알림이 컴파일 뒤로 한 번도 안 옴
+  s.error = "'" + st.room + "' 방 알림 대기 중";
+  if (mins >= (s.review_needed ? expire : T + SEND_WINDOW)) {
+    finish(s, "failed", s.error + " - 보내지 못함", true);
+  } else {
+    saveState(s);
+  }
+}
+
+function safeTick() {
+  try { locked(tick); } catch (e) { Log.e("[식단요정] " + e); }
+}
+
+// ---- 웹앱이 보는 상태 ----------------------------------------------------
+
+var RESULT_TEXT = { sent: "보냈어요", skipped: "안 보냈어요", rejected: "건너뛰기로 했어요",
+                    failed: "보내지 못했어요", expired: "응답이 없어 안 보냈어요",
+                    missed: "시각을 놓쳐 안 보냈어요" };
+
+function todaySummary(s) {
+  if (s.done) return RESULT_TEXT[s.result] + (s.reason ? " (" + s.reason + ")" : "");
+  if (!settings.enabled) return "자동 발송이 꺼져 있어요";
+  if (!settings.room) return "보낼 방을 골라 주세요";
+  if (isWeekend() && !settings.force_review) return "주말이라 쉬어요";
+  if (s.review_needed && s.decision === "approve") return "수락됨 - " + settings.time + " 이후 보내요";
+  if (s.review_needed) return "검토 대기 중: " + (s.reasons || []).join(" · ");
+  return settings.time + "에 보낼 예정" + (s.error ? " (" + s.error + ")" : "");
+}
+
+function status() {
+  var s = loadState();
+  return {
+    settings: {
+      room: settings.room, time: settings.time,
+      enabled: settings.enabled, force_review: settings.force_review
+    },
+    rooms: roomList(),
+    today: {
+      date: s.date,
+      summary: todaySummary(s),
+      review_needed: !!s.review_needed,
+      decision: s.decision || null,
+      done: !!s.done,
+      result: s.result || null
+    },
+    log: loadLog(),
+    started: startedAt,
+    last_tick: lastTick
+  };
+}
+
+// ---- API ------------------------------------------------------------------
+
+function httpError(code, message) { return { status: code, body: { error: message } }; }
+
+function apiSettings(body) {
+  var time = String(body.time || settings.time);
+  if (!/^\d{2}:\d{2}$/.test(time)) return httpError(400, "시각 형식이 잘못됐어요 (HH:MM)");
+  var m = toMinutes(time);
+  if (m < 6 * 60 || m > 21 * 60 || m % 10 !== 0) {
+    return httpError(400, "시각은 06:00~21:00, 10분 단위로 골라 주세요");
+  }
+  settings.time = time;
+  settings.room = String(body.room || "");
+  settings.enabled = !!body.enabled;
+  settings.force_review = !!body.force_review;
+  writeJson(SETTINGS_FILE, settings);
+
+  // 아직 안 보낸 날이면 새 설정으로 오늘을 다시 판단한다 (내린 결정은 유지).
+  // 새 시각의 발송 시간대가 이미 지났으면 그대로 둔다. 다시 판단하면 지금 바로 보내 버린다.
+  var s = loadState();
+  if (s.done && s.result !== "sent" && nowMinutes() <= lastSendMinute(s, m)) {
+    saveState({ date: s.date, decision: s.decision });
+  }
+  return { status: 200, body: { ok: true } };
+}
+
+function apiReview(body) {
+  var s = loadState();
+  if (body.date !== s.date) return httpError(400, "오늘 검토 건이 아니에요");
+  if (body.decision !== "approve" && body.decision !== "skip") return httpError(400, "decision 은 approve 또는 skip");
+  if (s.done) return httpError(409, "이미 처리된 날이에요: " + todaySummary(s));
+  s.decision = body.decision;
+  saveState(s);
+  addLog({ date: s.date, result: body.decision === "approve" ? "approved" : "rejected", room: "", reason: "검토 결정" });
+  // 결정 즉시 한 번 돌린다 (설정 시각이 지났으면 바로 보낸다)
+  new java.lang.Thread(new java.lang.Runnable({ run: safeTick })).start();
+  var message = body.decision === "skip" ? "오늘은 보내지 않아요"
+    : (nowMinutes() >= toMinutes(settings.time) ? "곧 보낼게요" : settings.time + "에 보낼게요");
+  return { status: 200, body: { ok: true, message: message } };
+}
+
+function apiTest() {
+  if (!settings.room) return httpError(400, "보낼 방을 먼저 골라 주세요");
+  var text;
+  try {
+    var data = fetchToday();
+    if (data.date !== today()) {
+      return httpError(409, "today.json 이 아직 오늘 것이 아니에요 (" + data.date + "). 지난 식단은 보내지 않아요");
+    }
+    text = data.ready && data.text ? data.text
+      : "식단요정 테스트: 오늘은 보내지 않는 날이에요 (" + (data.skip_reason || "식단 없음") + ")";
+  } catch (e) {
+    return httpError(502, "today.json 받기 실패: " + e);
+  }
+  if (!sendTo(settings.room, text)) {
+    return httpError(409, "'" + settings.room + "' 방 알림을 아직 못 받았어요. 그 방에 메시지가 한 번 온 뒤에 다시 해 주세요");
+  }
+  addLog({ date: today(), result: "test", room: settings.room, reason: "" });
+  return { status: 200, body: { ok: true, message: "'" + settings.room + "' 에 보냈어요" } };
+}
+
+/** 알림을 못 받은 방도 이름으로 직접 추가한다. 보내기는 그 방 알림이 한 번 온 뒤부터 된다. */
+function apiAddRoom(body) {
+  var name = String(body.name || "").trim();
+  if (!name) return httpError(400, "방 이름을 입력해 주세요");
+  if (name.length > 100) return httpError(400, "방 이름이 너무 길어요");
+  if (!rooms[name]) {
+    rooms[name] = { group: false, last_seen: "", manual: true };
+    writeJson(ROOMS_FILE, rooms);
+  }
+  return { status: 200, body: { ok: true, rooms: roomList() } };
+}
+
+function apiNotifyTest() {
+  var ok = notify("식단요정 알림 테스트", "이 알림을 누르면 검토 화면이 열려요", true);
+  return ok ? { status: 200, body: { ok: true, message: "알림을 띄웠어요" } }
+    : httpError(500, "알림을 띄우지 못했어요 (봇 로그 확인)");
+}
+
+function route(method, path, body) {
+  if (method === "GET" && path === "/status") return { status: 200, body: status() };
+  if (method === "POST" && path === "/settings") return apiSettings(body);
+  if (method === "POST" && path === "/review") return apiReview(body);
+  if (method === "POST" && path === "/test") return apiTest();
+  if (method === "POST" && path === "/notify") return apiNotifyTest();
+  if (method === "POST" && path === "/rooms") return apiAddRoom(body);
+  return httpError(404, "없는 주소");
+}
+
+// ---- 127.0.0.1 HTTP 서버 --------------------------------------------------
+
+var REASON = { 200: "OK", 204: "No Content", 400: "Bad Request", 401: "Unauthorized",
+               403: "Forbidden", 404: "Not Found", 409: "Conflict", 500: "Server Error", 502: "Bad Gateway" };
+
+/** 요청 한 건을 바이트 단위로 읽는다. 방 이름(한글)이 본문에 들어오므로 글자 수가 아니라 바이트로 센다. */
+function readRequest(sock) {
+  sock.setSoTimeout(5000);
+  var ins = sock.getInputStream();
+  var head = new java.io.ByteArrayOutputStream();
+  var matched = 0;  // \r\n\r\n 중 몇 바이트가 맞았는지
+  var b;
+  while ((b = ins.read()) !== -1) {
+    head.write(b);
+    if (b === (matched % 2 === 0 ? 13 : 10)) matched++;
+    else matched = b === 13 ? 1 : 0;
+    if (matched === 4) break;
+    if (head.size() > 16384) throw "헤더가 너무 큼";
+  }
+  var lines = String(new java.lang.String(head.toByteArray(), "UTF-8")).split("\r\n");
+  var first = lines[0].split(" ");
+  var headers = {};
+  for (var i = 1; i < lines.length; i++) {
+    var at = lines[i].indexOf(":");
+    if (at > 0) headers[lines[i].slice(0, at).trim().toLowerCase()] = lines[i].slice(at + 1).trim();
+  }
+  var len = Math.min(Number(headers["content-length"] || 0), 65536);
+  var body = "";
+  if (len > 0) {
+    var bytes = java.lang.reflect.Array.newInstance(java.lang.Byte.TYPE, len);
+    var off = 0;
+    while (off < len) {
+      var n = ins.read(bytes, off, len - off);
+      if (n < 0) break;
+      off += n;
+    }
+    body = String(new java.lang.String(bytes, 0, off, "UTF-8"));
+  }
+  return { method: first[0], path: (first[1] || "/").split("?")[0], headers: headers, body: body };
+}
+
+function respond(sock, status, obj, origin) {
+  var body = obj === null ? "" : JSON.stringify(obj);
+  var bytes = new java.lang.String(body).getBytes("UTF-8");
+  var h = "HTTP/1.1 " + status + " " + (REASON[status] || "") + "\r\n" +
+    "Content-Type: application/json; charset=utf-8\r\n" +
+    "Content-Length: " + bytes.length + "\r\n" +
+    "Cache-Control: no-store\r\nConnection: close\r\n";
+  if (origin === ORIGIN) {
+    h += "Access-Control-Allow-Origin: " + ORIGIN + "\r\nVary: Origin\r\n" +
+      "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n" +
+      "Access-Control-Allow-Headers: Content-Type, X-Siktan-Code\r\n" +
+      // 공개 사이트가 기기 안 서버를 부르는 것을 크롬이 허락받는 헤더
+      "Access-Control-Allow-Private-Network: true\r\n" +
+      "Access-Control-Max-Age: 600\r\n";
+  }
+  var out = sock.getOutputStream();
+  out.write(new java.lang.String(h + "\r\n").getBytes("UTF-8"));
+  out.write(bytes);
+  out.flush();
+}
+
+function handle(sock) {
+  try {
+    var req = readRequest(sock);
+    var origin = req.headers["origin"] || "";
+    // 다른 웹사이트에서 온 요청은 아예 받지 않는다 (Origin 없는 요청은 코드로 막는다)
+    if (origin && origin !== ORIGIN) return respond(sock, 403, { error: "허용되지 않은 출처" }, "");
+    if (req.method === "OPTIONS") return respond(sock, 204, null, origin);
+    if (req.headers["x-siktan-code"] !== settings.code) return respond(sock, 401, { error: "연결 코드가 필요해요" }, origin);
+    var body = {};
+    if (req.body) {
+      try { body = JSON.parse(req.body); } catch (e) { return respond(sock, 400, { error: "JSON 형식 오류" }, origin); }
+    }
+    var res = locked(function () { return route(req.method, req.path, body); });
+    respond(sock, res.status, res.body, origin);
+  } catch (e) {
+    Log.e("[식단요정] 요청 처리 실패: " + e);
+    try { respond(sock, 500, { error: String(e) }, ""); } catch (ignored) {}
+  } finally {
+    try { sock.close(); } catch (ignored) {}
+  }
+}
+
+var server = null;
+try {
+  server = new java.net.ServerSocket();
+  server.setReuseAddress(true);
+  server.bind(new java.net.InetSocketAddress("127.0.0.1", PORT));
+  new java.lang.Thread(new java.lang.Runnable({ run: function () {
+    while (!server.isClosed()) {
+      try {
+        handle(server.accept());
+      } catch (e) {
+        if (!server.isClosed()) Log.e("[식단요정] 서버 오류: " + e);
+      }
+    }
+  } })).start();
+  Log.i("[식단요정] 설정 서버 127.0.0.1:" + PORT + " · 연결 코드 " + settings.code + (API2 ? " (API2)" : " (레거시 API)"));
+} catch (e) {
+  Log.e("[식단요정] 설정 서버를 못 열었습니다 (" + e + "). 봇을 껐다 켜 보세요. 연결 코드 " + settings.code);
+}
+
+// ---- 1분마다 확인 ----
+var timer = new java.util.Timer();
+timer.scheduleAtFixedRate(
+  new java.util.TimerTask({ run: safeTick }),
+  0,
+  60 * 1000
+);
+
+// 재컴파일할 때 이전 타이머·서버가 남아 두 번 보내거나 포트를 잡고 있지 않도록 끈다
+function stopAll() {
+  timer.cancel();
+  try { if (server) server.close(); } catch (e) {}
+}
+
+// ---- 방 목록 수집 + 수동 확인 "/식단" ----
+function onMessage(room, content, isGroup, reply) {
+  // 잠금을 걸지 않는다: 발송 확인이 today.json 을 받는 동안 메시지 처리가 멈추면 안 된다
+  seeRoom(String(room), isGroup);
+  if (String(content).trim() !== "/식단") return;
+  try {
+    var data = fetchToday();
+    if (data.date !== today()) {
+      reply("식단요정: 오늘 식단이 아직 안 올라왔어요 (마지막 자료 " + data.date + ")");
+      return;
+    }
+    reply(data.ready && data.text ? data.text : "식단요정: 보내지 않음 - " + (data.skip_reason || "식단 없음"));
+  } catch (e) {
+    reply("식단요정: today.json 받기 실패 - " + e);
+  }
+}
+
+if (API2) {
+  bot.addListener(Event.START_COMPILE, stopAll);
+  bot.addListener(Event.MESSAGE_CREATED, function (msg) {
+    onMessage(msg.room, msg.content, msg.isGroupChat, function (t) { msg.reply(t); });
+  });
+}
+
+// 레거시 API 가 부르는 함수들 (API2 에서는 쓰이지 않는다)
+function onStartCompile() { stopAll(); }
+function response(room, msg, sender, isGroupChat, replier) {
+  onMessage(room, msg, isGroupChat, function (t) { replier.reply(t); });
+}
