@@ -81,7 +81,7 @@ font-size:13px;padding:8px 16px;border-radius:999px;opacity:0;transition:opacity
     <h1>🍽️ 식단요정 · 2026-W39</h1>
     <nav class="tabs"><a href="#" data-view="week">이번 주</a><a href="#settings" data-view="settings">발송 설정</a></nav>
     <section id="view-week">
-    <div class="sub">복사 버튼을 누르고 단톡방에 붙여넣으세요. · 생성 2026-09-24 12:35</div>
+    <div class="sub">복사 버튼을 누르고 단톡방에 붙여넣으세요. · 생성 2026-09-24 15:11</div>
 
     <div class="card">
       <div class="head">
@@ -540,7 +540,7 @@ or
   </div>
 <script>
 var PENDING = [];
-var TODAY = {"date": "2026-09-24", "ready": false, "skip_reason": "공휴일: 추석 전날", "pending": [], "empty": false, "review": {"required": true, "reasons": ["연 식당 수 급감: 평소 9곳 → 오늘 1곳", "메뉴 양 급감: 평소 90줄 → 오늘 2줄", "특이 키워드: 추석"], "calendar_ok": true}, "text": "2026년 9월 24일 목요일의 식단입니다! 🍽️\n\n━━━ 🥗 더그레이스테이블 ━━━\n\n🐣 중식\n추석\n\n🐥 석식\n추석", "generated": "2026-09-24 12:35"};
+var TODAY = {"date": "2026-09-24", "ready": false, "skip_reason": "공휴일: 추석 전날", "pending": [], "empty": false, "review": {"required": true, "reasons": ["연 식당 수 급감: 평소 9곳 → 오늘 1곳", "메뉴 양 급감: 평소 90줄 → 오늘 2줄", "특이 키워드: 추석"], "calendar_ok": true}, "text": "2026년 9월 24일 목요일의 식단입니다! 🍽️\n\n━━━ 🥗 더그레이스테이블 ━━━\n\n🐣 중식\n추석\n\n🐥 석식\n추석", "generated": "2026-09-24 15:11"};
 
 function copyText(btn){
   // 아직 식단을 안 올린 식당이 있으면 실수로 올리지 않도록 한 번 확인한다
@@ -655,19 +655,34 @@ function renderLog(log){
   }).join('') + '</ul>';
 }
 
+// 방 목록. 고른 방은 알림 목록에 없어도(직접 입력) 맨 위에 보여 준다.
+function roomRows(rooms, selected){
+  var list = rooms.slice();
+  if (selected && !list.some(function(r){ return r.name === selected; })) {
+    list.unshift({ name: selected, sendable: false, manual: true });
+  }
+  if (!list.length) return '<p class="muted">아직 방이 없어요. 아래에 방 이름을 직접 넣거나, 그 방에 누가 한 번 말하면 자동으로 나타나요.</p>';
+  return list.map(function(r){
+    return '<div class="row"><label><input type="radio" name="room" value="' + esc(r.name) + '"' +
+      (r.name === selected ? ' checked' : '') + '> ' + esc(r.name) +
+      (r.group ? ' <span class="tag">단톡</span>' : '') + '</label>' +
+      (r.sendable ? '<span class="tag ok">지금 보낼 수 있음</span>' : '<span class="tag wait">알림 대기 중</span>') +
+      '</div>';
+  }).join('');
+}
+
+var roomTimer = null;
+
 function showSettings(){
   var el = document.getElementById('view-settings');
   el.innerHTML = '<p class="muted">봇 확인 중…</p>';
   bot('/status').then(function(st){
     var s = st.settings || {};
-    var rooms = st.rooms || [];
-    var roomHtml = rooms.length ? rooms.map(function(r){
-      return '<div class="row"><label><input type="radio" name="room" value="' + esc(r.name) + '"' +
-        (r.name === s.room ? ' checked' : '') + '> ' + esc(r.name) +
-        (r.group ? ' <span class="tag">단톡</span>' : '') + '</label>' +
-        (r.sendable ? '<span class="tag ok">지금 보낼 수 있음</span>' : '<span class="tag wait">알림 대기 중</span>') +
-        '</div>';
-    }).join('') : '<p class="muted">보낼 방에서 알림이 한 번 와야 목록에 나타나요.</p>';
+    var roomHtml = '<div id="s-rooms">' + roomRows(st.rooms || [], s.room) + '</div>' +
+      '<div class="actions"><input type="text" id="s-room-name" placeholder="방 이름 직접 입력" ' +
+        'style="flex:1;width:auto;letter-spacing:0;text-align:left"><button id="s-room-add">추가</button></div>' +
+      '<p class="muted">카톡 알림에 보이는 방 이름 그대로 (1:1 방은 상대 이름). ' +
+        '보내려면 봇을 켠 뒤 그 방에 다른 사람 메시지가 한 번은 와야 해요 — 그 전엔 “알림 대기 중”.</p>';
 
     el.innerHTML =
       '<div class="panel"><div class="row"><label><input type="checkbox" id="s-enabled"' + (s.enabled ? ' checked' : '') +
@@ -686,14 +701,43 @@ function showSettings(){
 
     function save(){
       var picked = el.querySelector('input[name=room]:checked');
+      s.room = picked ? picked.value : (s.room || '');
       bot('/settings', {
-        room: picked ? picked.value : (s.room || ''),
+        room: s.room,
         time: document.getElementById('s-time').value,
         enabled: document.getElementById('s-enabled').checked,
         force_review: document.getElementById('s-force').checked
       }).then(function(){ toast('저장됨 ✓'); }, function(err){ renderOffline(el, err); });
     }
-    Array.prototype.forEach.call(el.querySelectorAll('input,select'), function(i){ i.onchange = save; });
+    function bindRooms(){
+      Array.prototype.forEach.call(el.querySelectorAll('input[name=room]'), function(i){ i.onchange = save; });
+    }
+    Array.prototype.forEach.call(el.querySelectorAll('#s-enabled,#s-time,#s-force'), function(i){ i.onchange = save; });
+    bindRooms();
+    document.getElementById('s-room-add').onclick = function(){
+      var name = document.getElementById('s-room-name').value.trim();
+      if (!name) return;
+      bot('/rooms', { name: name }).then(function(r){
+        s.room = name;
+        document.getElementById('s-rooms').innerHTML = roomRows(r.rooms || [], name);
+        document.getElementById('s-room-name').value = '';
+        bindRooms();
+        save();
+      }, function(err){ err.kind === 'error' ? alert(err.message) : renderOffline(el, err); });
+    };
+    // 이 화면을 보는 동안 5초마다 방 목록을 새로 받는다 (새 알림이 온 방이 바로 나타나게)
+    clearInterval(roomTimer);
+    roomTimer = setInterval(function(){
+      if (document.getElementById('view-settings').hidden || !document.getElementById('s-rooms')) {
+        clearInterval(roomTimer); return;
+      }
+      bot('/status').then(function(now){
+        var box = document.getElementById('s-rooms');
+        if (!box) return;
+        box.innerHTML = roomRows(now.rooms || [], s.room);
+        bindRooms();
+      }, function(){});
+    }, 5000);
     document.getElementById('s-test').onclick = function(){
       if (!s.room) { alert('보낼 방을 먼저 골라 주세요.'); return; }
       if (!confirm('“' + s.room + '” 방에 지금 오늘 식단을 보낼까요?')) return;
