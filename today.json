@@ -1,18 +1,14 @@
 {
-  "date": "2026-09-25",
+  "date": "2026-09-26",
   "ready": false,
-  "skip_reason": "공휴일: 추석",
+  "skip_reason": "주말: 토요일",
   "pending": [],
-  "empty": false,
+  "empty": true,
   "review": {
-    "required": true,
-    "reasons": [
-      "연 식당 수 급감: 평소 9곳 → 오늘 1곳",
-      "메뉴 양 급감: 평소 90줄 → 오늘 2줄",
-      "특이 키워드: 추석"
-    ],
+    "required": false,
+    "reasons": [],
     "calendar_ok": true
   },
-  "text": "2026년 9월 25일 금요일의 식단입니다! 🍽️\n\n━━━ 🥗 더그레이스테이블 ━━━\n\n🐣 중식\n주석\n\n🐥 석식\n추석",
-  "generated": "2026-09-25 18:47"
+  "text": "",
+  "generated": "2026-09-26 00:06"
 }
