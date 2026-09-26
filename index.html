@@ -89,7 +89,7 @@ font-size:13px;padding:8px 16px;border-radius:999px;opacity:0;transition:opacity
     <nav class="tabs"><a href="#" data-view="week">이번 주</a><a href="#settings" data-view="settings">발송 설정</a><span class="spacer"></span><button id="refresh-btn" onclick="refreshMenus()">↻ 불러오기</button></nav>
     <div id="refresh-box" class="panel" hidden></div>
     <section id="view-week">
-    <div class="sub">복사 버튼을 누르고 단톡방에 붙여넣으세요. · 생성 2026-09-26 13:34</div>
+    <div class="sub">복사 버튼을 누르고 단톡방에 붙여넣으세요. · 생성 2026-09-26 18:31</div>
 
     <div class="card">
       <div class="head">
@@ -534,13 +534,22 @@ or
       </div>
       <pre><b class="h-date">2026년 9월 26일 토요일 식단을 아직 받아오지 못했어요.</b></pre>
     </div>
-    <div class="card is-empty">
+    <div class="card">
       <div class="head">
-        <span class="day">9월 27일 (일)</span><span class="empty-tag">식단 없음</span>
+        <span class="day">9월 27일 (일)</span>
         <span class="spacer"></span>
         <button onclick="copyText(this)">복사</button>
       </div>
-      <pre><b class="h-date">2026년 9월 27일 일요일 식단을 아직 받아오지 못했어요.</b></pre>
+      <pre><b class="h-date">2026년 9월 27일 일요일의 식단입니다! 🍽️</b>
+
+<b class="h-sec">━━━ 🥄 학관 ━━━</b>
+
+<b class="h-rest">🍚 【코테(든든한동)】</b>
+<b class="h-meal">🐣 중식</b>
+열무비빔밥&amp;계란후라이
+
+<b class="h-rest">🍛 【믹스 라이스(따스한동)】</b>
+부산식유부주머니우동&amp;주먹밥</pre>
     </div>
     </section>
     <section id="view-settings" hidden></section>
@@ -548,7 +557,7 @@ or
   </div>
 <script>
 var PENDING = [];
-var TODAY = {"date": "2026-09-26", "ready": false, "skip_reason": "주말: 토요일", "pending": [], "empty": true, "review": {"required": false, "reasons": [], "calendar_ok": true}, "text": "", "generated": "2026-09-26 13:34"};
+var TODAY = {"date": "2026-09-26", "ready": false, "skip_reason": "주말: 토요일", "pending": [], "empty": true, "review": {"required": false, "reasons": [], "calendar_ok": true}, "text": "", "generated": "2026-09-26 18:31"};
 
 function copyText(btn){
   // 아직 식단을 안 올린 식당이 있으면 실수로 올리지 않도록 한 번 확인한다
