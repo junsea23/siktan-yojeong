@@ -1,14 +1,16 @@
 {
-  "date": "2026-09-26",
+  "date": "2026-09-27",
   "ready": false,
-  "skip_reason": "주말: 토요일",
+  "skip_reason": "주말: 일요일",
   "pending": [],
-  "empty": true,
+  "empty": false,
   "review": {
-    "required": false,
-    "reasons": [],
+    "required": true,
+    "reasons": [
+      "메뉴 양 급감: 평소 90줄 → 오늘 2줄"
+    ],
     "calendar_ok": true
   },
-  "text": "",
-  "generated": "2026-09-26 22:53"
+  "text": "2026년 9월 27일 일요일의 식단입니다! 🍽️\n\n━━━ 🥄 학관 ━━━\n\n🍚 【코테(든든한동)】\n🐣 중식\n열무비빔밥&계란후라이\n\n🍛 【믹스 라이스(따스한동)】\n부산식유부주머니우동&주먹밥",
+  "generated": "2026-09-27 07:03"
 }
