@@ -89,7 +89,7 @@ font-size:13px;padding:8px 16px;border-radius:999px;opacity:0;transition:opacity
     <nav class="tabs"><a href="#" data-view="week">이번 주</a><a href="#settings" data-view="settings">발송 설정</a><span class="spacer"></span><button id="refresh-btn" onclick="refreshMenus()">↻ 불러오기</button></nav>
     <div id="refresh-box" class="panel" hidden></div>
     <section id="view-week">
-    <div class="sub">복사 버튼을 누르고 단톡방에 붙여넣으세요. · 생성 2026-11-02 08:42</div>
+    <div class="sub">복사 버튼을 누르고 단톡방에 붙여넣으세요. · 생성 2026-11-02 09:01</div>
 <div class="warn">⏳ <b>맘스 키친, 교직원식당, 일반식당</b> 식단이 아직 히즈넷에 올라오지 않았습니다.<br>올라온 뒤에 단톡방에 올려 주세요. 복사 버튼은 그때까지 잠겨 있습니다.</div>
     <div class="card today">
       <div class="head">
@@ -438,7 +438,7 @@ OR
   </div>
 <script>
 var PENDING = ["맘스 키친", "교직원식당", "일반식당"];
-var TODAY = {"date": "2026-11-02", "ready": false, "skip_reason": "미등록 식당: 맘스 키친, 교직원식당, 일반식당", "pending": ["맘스 키친", "교직원식당", "일반식당"], "empty": false, "review": {"required": true, "reasons": ["연 식당 수 급감: 평소 9곳 → 오늘 6곳", "메뉴 양 급감: 평소 92줄 → 오늘 41줄"], "calendar_ok": true}, "text": "2026년 11월 2일 월요일의 식단입니다! 🍽️\n\n━━━ 🥄 학관 ━━━\n\n🍚 【코테(든든한동)】\n🥚 조식\n불고기낙지죽\n한입돈까스\n하와이안샐러드\n고들빼기무침\n\n🐣 중식\n사골우거지탕\n쌀밥\n모듬어묵볶음\n대파겉절이\n깍두기\n\n🐥 석식\n모듬햄볶음\n쌀밥\n시금치된장국\n감자채전\n얼갈이무침\n깍두기\n\n🥘 【프라이프라이(H-Plate)】\n등심돈까스\n치킨까스&투움바소스\n에그함박정식\n\n🍝 【누들로드】\n라면\n마요덮밥\n\n🍗 【그레이스 가든】\n찜닭\n\n🍛 【믹스 라이스(따스한동)】\n치즈콩불이\n타코파히타\n\n━━━ 🥗 더그레이스테이블 ━━━\n\n🐣 중식\n에그베네틱트\n닭가슴살 샐러드\n꼬막 비빔밥\n소고기 비빔밥\n찹스테이크 덮밥\n베이컨 크림 파스타\n새우 오일 파스타\n더블치즈버거\n감자튀김\n\n🐥 석식\n에그베네틱트\n닭가슴살 샐러드\n꼬막 비빔밥\n소고기 비빔밥\n찹스테이크 덮밥\n베이컨 크림 파스타\n새우 오일 파스타\n더블치즈버거\n감자튀김", "generated": "2026-11-02 08:42"};
+var TODAY = {"date": "2026-11-02", "ready": false, "skip_reason": "미등록 식당: 맘스 키친, 교직원식당, 일반식당", "pending": ["맘스 키친", "교직원식당", "일반식당"], "empty": false, "review": {"required": true, "reasons": ["연 식당 수 급감: 평소 9곳 → 오늘 6곳", "메뉴 양 급감: 평소 92줄 → 오늘 41줄"], "calendar_ok": true}, "text": "2026년 11월 2일 월요일의 식단입니다! 🍽️\n\n━━━ 🥄 학관 ━━━\n\n🍚 【코테(든든한동)】\n🥚 조식\n불고기낙지죽\n한입돈까스\n하와이안샐러드\n고들빼기무침\n\n🐣 중식\n사골우거지탕\n쌀밥\n모듬어묵볶음\n대파겉절이\n깍두기\n\n🐥 석식\n모듬햄볶음\n쌀밥\n시금치된장국\n감자채전\n얼갈이무침\n깍두기\n\n🥘 【프라이프라이(H-Plate)】\n등심돈까스\n치킨까스&투움바소스\n에그함박정식\n\n🍝 【누들로드】\n라면\n마요덮밥\n\n🍗 【그레이스 가든】\n찜닭\n\n🍛 【믹스 라이스(따스한동)】\n치즈콩불이\n타코파히타\n\n━━━ 🥗 더그레이스테이블 ━━━\n\n🐣 중식\n에그베네틱트\n닭가슴살 샐러드\n꼬막 비빔밥\n소고기 비빔밥\n찹스테이크 덮밥\n베이컨 크림 파스타\n새우 오일 파스타\n더블치즈버거\n감자튀김\n\n🐥 석식\n에그베네틱트\n닭가슴살 샐러드\n꼬막 비빔밥\n소고기 비빔밥\n찹스테이크 덮밥\n베이컨 크림 파스타\n새우 오일 파스타\n더블치즈버거\n감자튀김", "generated": "2026-11-02 09:01"};
 
 function copyText(btn){
   // 아직 식단을 안 올린 식당이 있으면 실수로 올리지 않도록 한 번 확인한다
