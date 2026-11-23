@@ -1,4 +1,4 @@
-const CACHE = 'siktan-202611231602';
+const CACHE = 'siktan-202611240420';
 const ASSETS = [
   './', './index.html', './manifest.webmanifest',
   './icon-192.png', './icon-512.png', './apple-touch-icon.png'
